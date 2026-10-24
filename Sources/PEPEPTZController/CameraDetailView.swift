@@ -1,7 +1,7 @@
 import PTZCore
 import SwiftUI
 
-/// The main area for the selected camera: details, live view (step 3) and controls.
+/// The main area for the selected camera: details, live view and controls.
 struct CameraDetailView: View {
     let camera: Camera
     let onEdit: () -> Void
@@ -46,13 +46,8 @@ struct CameraDetailView: View {
                 }
 
                 HStack(alignment: .top, spacing: 20) {
-                    VStack(spacing: 8) {
-                        Image(systemName: "play.rectangle").font(.system(size: 36)).foregroundStyle(.secondary)
-                        Text("Live view").font(.headline)
-                        Text("Coming in step 3").font(.caption).foregroundStyle(.secondary)
-                    }
-                    .frame(maxWidth: .infinity, minHeight: 300)
-                    .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 10))
+                    LiveVideoView(camera: camera)
+                        .frame(minWidth: 320, maxWidth: .infinity)
 
                     ControlsView(controller: controller)
                 }

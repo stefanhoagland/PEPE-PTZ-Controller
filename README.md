@@ -19,6 +19,9 @@ Built and tested against the Panasonic **AW-UE160**, using Panasonic's HTTP cont
 On the camera's web page, make sure IP control is allowed. If the camera asks for a login, enter the same
 username and password in the app.
 
+For live video, turn on JPEG streaming in the camera's web settings (Video over IP). The app reads
+`/cgi-bin/mjpeg?stream=1`, and falls back to fetching snapshots from `/cgi-bin/camera` if the stream isn't available.
+
 No camera handy? Add a camera and turn on **Simulated camera** to try the controls.
 
 ## Requirements
