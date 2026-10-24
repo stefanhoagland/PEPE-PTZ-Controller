@@ -1,4 +1,7 @@
 import Foundation
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 
 /// A command in Panasonic's PTZ network protocol, used by the AW-UE160 and
 /// other Panasonic integrated cameras.
@@ -107,6 +110,8 @@ public enum PTZError: Error, Equatable, CustomStringConvertible {
     /// `ER3`: a value was out of range.
     case outOfRange(String)
     case cameraError(String)
+    /// The video connection closed.
+    case streamEnded
 
     public var description: String {
         switch self {
@@ -117,7 +122,15 @@ public enum PTZError: Error, Equatable, CustomStringConvertible {
         case let .busy(text): return "The camera is busy (\(text)). It may still be starting up or in standby."
         case let .outOfRange(text): return "The camera rejected a value as out of range (\(text))."
         case let .cameraError(text): return "The camera reported an error: \(text)"
+        case .streamEnded: return "The camera closed the video connection."
         }
+    }
+
+    /// Throws for a login failure or any other non-success HTTP status.
+    public static func check(httpResponse response: URLResponse?) throws {
+        guard let http = response as? HTTPURLResponse else { return }
+        if http.statusCode == 401 { throw PTZError.unauthorized }
+        if !(200..<300).contains(http.statusCode) { throw PTZError.httpStatus(http.statusCode) }
     }
 
     /// Checks a camera reply and throws if it is an error such as `ER2:PTS`.
