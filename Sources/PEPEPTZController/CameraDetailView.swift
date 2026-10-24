@@ -6,17 +6,6 @@ struct CameraDetailView: View {
     let camera: Camera
     let onEdit: () -> Void
 
-    @StateObject private var controller: CameraController
-
-    init(camera: Camera, onEdit: @escaping () -> Void) {
-        self.camera = camera
-        self.onEdit = onEdit
-        _controller = StateObject(wrappedValue: CameraController(
-            camera: camera,
-            password: camera.isSimulated ? nil : Keychain.password(for: camera.id)
-        ))
-    }
-
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
@@ -49,12 +38,29 @@ struct CameraDetailView: View {
                     LiveVideoView(camera: camera)
                         .frame(minWidth: 320, maxWidth: .infinity)
 
-                    ControlsView(controller: controller)
+                    CameraControlPanel(camera: camera)
                 }
             }
             .padding(24)
             .frame(maxWidth: .infinity, alignment: .topLeading)
         }
-        .onDisappear { controller.stopEverything() }
+    }
+}
+
+/// The control panel for one camera, with its own connection.
+/// Leaving it stops any movement.
+struct CameraControlPanel: View {
+    @StateObject private var controller: CameraController
+
+    init(camera: Camera) {
+        _controller = StateObject(wrappedValue: CameraController(
+            camera: camera,
+            password: camera.isSimulated ? nil : Keychain.password(for: camera.id)
+        ))
+    }
+
+    var body: some View {
+        ControlsView(controller: controller)
+            .onDisappear { controller.stopEverything() }
     }
 }

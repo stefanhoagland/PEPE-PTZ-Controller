@@ -6,6 +6,12 @@ struct ContentView: View {
     @State private var selection: Camera.ID?
     @State private var editor: EditorMode?
     @State private var pendingRemoval: Camera?
+    @AppStorage("layout") private var layout: Layout = .grid
+
+    enum Layout: String {
+        case grid
+        case single
+    }
 
     enum EditorMode: Identifiable {
         case add
@@ -23,14 +29,17 @@ struct ContentView: View {
         NavigationSplitView {
             sidebar
         } detail: {
-            if let id = selection, let camera = model.library.camera(id: id) {
-                CameraDetailView(camera: camera) { editor = .edit(camera) }
-                    // Start a fresh connection whenever the camera or its settings change.
-                    .id(camera)
-            } else {
-                Text(model.library.cameras.isEmpty ? "Add a camera to get started" : "Select a camera")
-                    .foregroundStyle(.secondary)
-            }
+            detail
+                .toolbar {
+                    ToolbarItem(placement: .principal) {
+                        Picker("Layout", selection: $layout) {
+                            Label("Grid", systemImage: "square.grid.2x2").tag(Layout.grid)
+                            Label("Single", systemImage: "rectangle").tag(Layout.single)
+                        }
+                        .pickerStyle(.segmented)
+                        .help("Show all cameras in a grid, or one camera large")
+                    }
+                }
         }
         .sheet(item: $editor) { mode in
             switch mode {
@@ -64,6 +73,26 @@ struct ContentView: View {
             Button("OK", role: .cancel) {}
         } message: {
             Text(model.errorMessage ?? "")
+        }
+    }
+
+    @ViewBuilder
+    private var detail: some View {
+        if model.library.cameras.isEmpty {
+            Text("Add a camera to get started")
+                .foregroundStyle(.secondary)
+        } else if layout == .grid {
+            MultiviewView(cameras: model.library.cameras, selection: $selection) { id in
+                selection = id
+                layout = .single
+            }
+        } else if let id = selection, let camera = model.library.camera(id: id) {
+            CameraDetailView(camera: camera) { editor = .edit(camera) }
+                // Start a fresh connection whenever the camera or its settings change.
+                .id(camera)
+        } else {
+            Text("Select a camera")
+                .foregroundStyle(.secondary)
         }
     }
 
