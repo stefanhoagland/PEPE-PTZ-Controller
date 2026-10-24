@@ -4,8 +4,12 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-VERSION="${1:-${GITHUB_REF_NAME:-0.0.0}}"
+DEFAULT_VERSION="0.0.0"
+if [[ "${GITHUB_REF_TYPE:-}" == "tag" ]]; then DEFAULT_VERSION="$GITHUB_REF_NAME"; fi
+VERSION="${1:-$DEFAULT_VERSION}"
 VERSION="${VERSION#v}"
+# macOS needs a plain number like 1.2.3 (pull request builds have names like "5/merge").
+if [[ ! "$VERSION" =~ ^[0-9]+(\.[0-9]+)*$ ]]; then VERSION="0.0.0"; fi
 APP_NAME="PEPE PTZ Controller"
 APP="dist/$APP_NAME.app"
 
