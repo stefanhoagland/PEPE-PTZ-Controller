@@ -24,10 +24,14 @@ final class CameraController: ObservableObject {
     @Published var zoomSpeed: Double = 25
 
     private let queue: AsyncStream<PanasonicCommand>.Continuation
+    private let host: String
+    private var modelName: String?
+    private var retryTask: Task<Void, Never>?
 
     static let commandGap: UInt64 = 130_000_000
 
     init(camera: Camera, password: String?) {
+        host = camera.host
         let client: PTZClient?
         if camera.isSimulated {
             client = SimulatedCamera()
@@ -96,6 +100,8 @@ final class CameraController: ObservableObject {
     func savePreset(_ number: Int) { send(.savePreset(number)) }
     func setPower(_ on: Bool) { send(.power(on)) }
     func reconnect() {
+        retryTask?.cancel()
+        retryTask = nil
         status = .connecting
         send(.queryModel)
     }
@@ -115,23 +121,64 @@ final class CameraController: ObservableObject {
 
     private func handle(reply: String, to command: PanasonicCommand) {
         lastError = nil
+        retryTask?.cancel()
+        retryTask = nil
         switch command {
         case .queryModel:
             let model = reply.hasPrefix("OID:") ? String(reply.dropFirst(4)) : reply
+            modelName = model
             status = .connected(model: model)
         case let .recallPreset(number):
             lastPreset = number
+            markConnected()
         default:
-            if case .failed = status { status = .connecting; send(.queryModel) }
+            markConnected()
+        }
+    }
+
+    /// Any answer from the camera means it's reachable again.
+    private func markConnected() {
+        if case .connected = status { return }
+        if let modelName {
+            status = .connected(model: modelName)
+        } else {
+            send(.queryModel)
         }
     }
 
     private func handle(error: Error, for command: PanasonicCommand) {
-        let message = (error as? PTZError)?.description ?? error.localizedDescription
+        let message = Self.describe(error, host: host)
         if command == .queryModel {
             status = .failed(message)
+            scheduleReconnect()
         } else {
             lastError = message
         }
+    }
+
+    /// Keeps asking the camera every few seconds until it answers.
+    private func scheduleReconnect() {
+        guard retryTask == nil else { return }
+        retryTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 4_000_000_000)
+            guard let self, !Task.isCancelled else { return }
+            self.retryTask = nil
+            if case .failed = self.status { self.send(.queryModel) }
+        }
+    }
+
+    private static func describe(_ error: Error, host: String) -> String {
+        if let error = error as? PTZError { return error.description }
+        if let error = error as? URLError {
+            switch error.code {
+            case .timedOut:
+                return "No answer from \(host) in time. Retrying…"
+            case .cannotConnectToHost, .networkConnectionLost, .notConnectedToInternet, .cannotFindHost:
+                return "Can't reach \(host). Check the address and network. Retrying…"
+            default:
+                break
+            }
+        }
+        return error.localizedDescription
     }
 }

@@ -9,26 +9,41 @@ public protocol PTZClient: Sendable {
 }
 
 /// Talks to a real Panasonic camera over HTTP. Handles basic and digest login.
+///
+/// Each command uses a fresh connection. Panasonic cameras' built-in web servers
+/// can drop kept-alive connections without saying so, which makes the next
+/// command on that connection hang until it times out.
 public final class PanasonicHTTPClient: PTZClient, @unchecked Sendable {
     private let baseURL: URL
-    private let session: URLSession
+    private let username: String
+    private let password: String
+    private let timeout: TimeInterval
 
-    public init(baseURL: URL, username: String, password: String, timeout: TimeInterval = 3) {
+    public init(baseURL: URL, username: String, password: String, timeout: TimeInterval = 5) {
         self.baseURL = baseURL
-        let configuration = URLSessionConfiguration.ephemeral
-        configuration.timeoutIntervalForRequest = timeout
-        configuration.requestCachePolicy = .reloadIgnoringLocalCacheData
-        let delegate = CameraLoginDelegate(username: username, password: password)
-        self.session = URLSession(configuration: configuration, delegate: delegate, delegateQueue: nil)
-    }
-
-    deinit {
-        session.invalidateAndCancel()
+        self.username = username
+        self.password = password
+        self.timeout = timeout
     }
 
     public func send(_ command: PanasonicCommand) async throws -> String {
         guard let url = command.url(baseURL: baseURL) else { throw PTZError.noAddress }
-        let (data, response) = try await session.data(from: url)
+
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.timeoutIntervalForRequest = timeout
+        configuration.requestCachePolicy = .reloadIgnoringLocalCacheData
+        configuration.httpMaximumConnectionsPerHost = 1
+        let session = URLSession(
+            configuration: configuration,
+            delegate: CameraLoginDelegate(username: username, password: password),
+            delegateQueue: nil
+        )
+        defer { session.finishTasksAndInvalidate() }
+
+        var request = URLRequest(url: url)
+        request.setValue("close", forHTTPHeaderField: "Connection")
+
+        let (data, response) = try await session.data(for: request)
         try PTZError.check(httpResponse: response)
         return try PTZError.check(response: String(decoding: data, as: UTF8.self))
     }
