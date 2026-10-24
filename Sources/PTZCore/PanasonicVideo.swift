@@ -45,7 +45,7 @@ public enum PanasonicVideo {
 
     /// JPEG frames made by asking the camera for a new picture over and over.
     public static func snapshotFrames(
-        url: URL, username: String, password: String, interval: TimeInterval = 0.2
+        url: URL, username: String, password: String, interval: TimeInterval = 0.5
     ) -> AsyncThrowingStream<Data, Error> {
         AsyncThrowingStream(bufferingPolicy: .bufferingNewest(1)) { continuation in
             let task = Task {
