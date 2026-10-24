@@ -152,7 +152,7 @@ final class CameraController: ObservableObject {
             status = .failed(message)
             scheduleReconnect()
         } else {
-            lastError = message
+            lastError = "\(command.commandText): \(message)"
         }
     }
 

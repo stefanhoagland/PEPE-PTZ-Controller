@@ -15,6 +15,25 @@ final class LiveVideoModel: ObservableObject {
         case failed(String)
     }
 
+    /// How the picture is fetched from the camera.
+    enum Mode: String, CaseIterable, Identifiable {
+        /// A continuous Motion JPEG stream: smoothest, but keeps a connection open.
+        case stream
+        /// Single pictures fetched about twice a second: lighter on the camera.
+        case snapshots
+        /// No video, so the camera only handles control commands.
+        case off
+
+        var id: String { rawValue }
+        var label: String {
+            switch self {
+            case .stream: return "Stream"
+            case .snapshots: return "Snapshots"
+            case .off: return "Off"
+            }
+        }
+    }
+
     @Published private(set) var frame: CGImage?
     @Published private(set) var status: Status = .connecting
 
@@ -27,11 +46,15 @@ final class LiveVideoModel: ObservableObject {
         self.password = password ?? ""
     }
 
-    func start() {
-        guard task == nil else { return }
+    func start(mode: Mode) {
+        stop()
+        guard mode != .off else {
+            frame = nil
+            return
+        }
         status = .connecting
         task = Task { [weak self] in
-            await self?.run()
+            await self?.run(mode: mode)
         }
     }
 
@@ -40,7 +63,7 @@ final class LiveVideoModel: ObservableObject {
         task = nil
     }
 
-    private func run() async {
+    private func run(mode: Mode) async {
         guard let base = camera.baseURL,
               let mjpegURL = PanasonicVideo.mjpegURL(baseURL: base),
               let snapshotURL = PanasonicVideo.snapshotURL(baseURL: base)
@@ -50,11 +73,14 @@ final class LiveVideoModel: ObservableObject {
         }
 
         while !Task.isCancelled {
-            let stream = await play(
-                PanasonicVideo.mjpegFrames(url: mjpegURL, username: camera.username, password: password),
-                source: "JPEG stream"
-            )
-            if Task.isCancelled { return }
+            var stream: (frames: Int, error: Error?) = (0, nil)
+            if mode == .stream {
+                stream = await play(
+                    PanasonicVideo.mjpegFrames(url: mjpegURL, username: camera.username, password: password),
+                    source: "JPEG stream"
+                )
+                if Task.isCancelled { return }
+            }
 
             if stream.frames == 0 {
                 let snapshots = await play(
