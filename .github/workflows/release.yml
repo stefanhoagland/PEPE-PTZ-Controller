@@ -1,10 +1,16 @@
 name: Release
 
-# Builds the downloadable Mac app. Pushing a tag like v0.1.0 also publishes it as a GitHub release.
+# Builds the downloadable Mac app and publishes it as a GitHub release when either:
+# - a tag like v0.1.0 is pushed, or
+# - the workflow is run by hand from the Actions tab with a version number.
 on:
   push:
     tags: ["v*"]
   workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to publish, for example 0.1.0 (leave empty to only build)"
+        required: false
   # Check that packaging still works when the build script changes.
   pull_request:
     paths: ["scripts/**", ".github/workflows/release.yml"]
@@ -18,9 +24,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Build app
+        env:
+          VERSION_INPUT: ${{ inputs.version }}
         run: |
           set -o pipefail
-          if ! scripts/build-app.sh 2>&1 | tee build.log; then
+          if ! scripts/build-app.sh $VERSION_INPUT 2>&1 | tee build.log; then
             # Show the end of the log as an annotation so the failure is easy to find.
             tail -n 40 build.log | sed -e 's/%/%25/g' | awk 'BEGIN{ORS="%0A"} {print}' | sed -e 's/^/::error title=Build app failed::/'
             echo
@@ -32,10 +40,18 @@ jobs:
           name: PEPE-PTZ-Controller
           path: dist/PEPE-PTZ-Controller.zip
       - name: Publish release
-        if: startsWith(github.ref, 'refs/tags/')
+        if: startsWith(github.ref, 'refs/tags/') || inputs.version != ''
         env:
           GH_TOKEN: ${{ github.token }}
+          VERSION_INPUT: ${{ inputs.version }}
         run: |
-          gh release create "$GITHUB_REF_NAME" dist/PEPE-PTZ-Controller.zip \
-            --title "PEPE PTZ Controller $GITHUB_REF_NAME" \
+          if [[ -n "$VERSION_INPUT" ]]; then
+            TAG="v${VERSION_INPUT#v}"
+          else
+            TAG="$GITHUB_REF_NAME"
+          fi
+          # --target creates the tag on this commit if it doesn't exist yet.
+          gh release create "$TAG" dist/PEPE-PTZ-Controller.zip \
+            --target "$GITHUB_SHA" \
+            --title "PEPE PTZ Controller $TAG" \
             --notes-file scripts/release-notes.md
