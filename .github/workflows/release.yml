@@ -18,7 +18,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Build app
-        run: scripts/build-app.sh
+        run: |
+          set -o pipefail
+          if ! scripts/build-app.sh 2>&1 | tee build.log; then
+            # Show the end of the log as an annotation so the failure is easy to find.
+            tail -n 40 build.log | sed -e 's/%/%25/g' | awk 'BEGIN{ORS="%0A"} {print}' | sed -e 's/^/::error title=Build app failed::/'
+            echo
+            exit 1
+          fi
       - name: Keep the build
         uses: actions/upload-artifact@v4
         with:
