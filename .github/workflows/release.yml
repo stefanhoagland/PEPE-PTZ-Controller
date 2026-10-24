@@ -1,0 +1,41 @@
+name: Release
+
+# Builds the downloadable Mac app. Pushing a tag like v0.1.0 also publishes it as a GitHub release.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+  # Check that packaging still works when the build script changes.
+  pull_request:
+    paths: ["scripts/**", ".github/workflows/release.yml"]
+
+permissions:
+  contents: write
+
+jobs:
+  app:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build app
+        run: |
+          set -o pipefail
+          if ! scripts/build-app.sh 2>&1 | tee build.log; then
+            # Show the end of the log as an annotation so the failure is easy to find.
+            tail -n 40 build.log | sed -e 's/%/%25/g' | awk 'BEGIN{ORS="%0A"} {print}' | sed -e 's/^/::error title=Build app failed::/'
+            echo
+            exit 1
+          fi
+      - name: Keep the build
+        uses: actions/upload-artifact@v4
+        with:
+          name: PEPE-PTZ-Controller
+          path: dist/PEPE-PTZ-Controller.zip
+      - name: Publish release
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" dist/PEPE-PTZ-Controller.zip \
+            --title "PEPE PTZ Controller $GITHUB_REF_NAME" \
+            --notes-file scripts/release-notes.md

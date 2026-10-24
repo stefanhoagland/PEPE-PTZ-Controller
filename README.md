@@ -36,7 +36,14 @@ No camera handy? Add a camera and turn on **Simulated camera** to try the contro
 - macOS 13 Ventura or newer
 - Xcode 15 or newer (or the Swift 5.9+ toolchain)
 
-## Running it
+## Download
+
+Get the latest app from the [Releases page](https://github.com/stefanhoagland/PEPE-PTZ-Controller/releases/latest).
+The release notes explain how to open it the first time, since it isn't notarized by Apple yet.
+
+To publish a new version, push a tag such as `v0.2.0`. GitHub builds the app and creates the release.
+
+## Running from source
 
 ```sh
 swift run PEPEPTZController
