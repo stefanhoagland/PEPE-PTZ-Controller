@@ -11,6 +11,16 @@ Early development. Planned steps:
 3. Live view for each camera
 4. Multi-camera grid: click a feed to take control
 
+## Supported cameras
+
+Built and tested against the Panasonic **AW-UE160**, using Panasonic's HTTP control protocol
+(`/cgi-bin/aw_ptz` and `/cgi-bin/aw_cam`). Other Panasonic PTZ models that use the same protocol should work too.
+
+On the camera's web page, make sure IP control is allowed. If the camera asks for a login, enter the same
+username and password in the app.
+
+No camera handy? Add a camera and turn on **Simulated camera** to try the controls.
+
 ## Requirements
 
 - macOS 13 Ventura or newer

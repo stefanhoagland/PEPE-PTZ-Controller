@@ -56,3 +56,16 @@ final class CameraLibraryTests: XCTestCase {
         XCTAssertEqual(try file.load(), library)
     }
 }
+
+final class CameraCodingTests: XCTestCase {
+    func testDecodesListSavedBeforeSimulatedCamerasExisted() throws {
+        let json = #"{"id":"6F9619FF-8B86-D011-B42D-00C04FC964FF","name":"Cam","host":"10.0.0.2","port":80,"username":"admin"}"#
+        let camera = try JSONDecoder().decode(Camera.self, from: Data(json.utf8))
+        XCTAssertFalse(camera.isSimulated)
+        XCTAssertEqual(camera.name, "Cam")
+    }
+
+    func testSimulatedCameraNeedsNoAddress() {
+        XCTAssertEqual(Camera(name: "Demo", host: "", isSimulated: true).validate(), [])
+    }
+}
