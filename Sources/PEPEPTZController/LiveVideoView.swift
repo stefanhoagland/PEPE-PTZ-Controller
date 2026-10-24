@@ -21,6 +21,7 @@ struct LiveVideoView: View {
 
 private struct CameraVideoView: View {
     @StateObject private var model: LiveVideoModel
+    @AppStorage("videoMode") private var mode: LiveVideoModel.Mode = .stream
 
     init(camera: Camera) {
         _model = StateObject(wrappedValue: LiveVideoModel(
@@ -37,10 +38,36 @@ private struct CameraVideoView: View {
                     .resizable()
                     .aspectRatio(contentMode: .fit)
             }
-            statusOverlay
+            if mode == .off {
+                Label("Video off", systemImage: "video.slash")
+                    .foregroundStyle(.white.opacity(0.7))
+            } else {
+                statusOverlay
+            }
         }
-        .onAppear { model.start() }
+        .overlay(alignment: .topTrailing) {
+            Menu {
+                Picker("Video", selection: $mode) {
+                    ForEach(LiveVideoModel.Mode.allCases) { mode in
+                        Text(mode.label).tag(mode)
+                    }
+                }
+                .pickerStyle(.inline)
+            } label: {
+                Label("Video: \(mode.label)", systemImage: "video")
+            }
+            .menuStyle(.borderlessButton)
+            .fixedSize()
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(.black.opacity(0.6), in: Capsule())
+            .foregroundStyle(.white)
+            .padding(8)
+            .help("Stream is smoothest. Snapshots or Off leave the camera more room for control commands.")
+        }
+        .onAppear { model.start(mode: mode) }
         .onDisappear { model.stop() }
+        .onChange(of: mode) { newMode in model.start(mode: newMode) }
     }
 
     @ViewBuilder
