@@ -22,6 +22,13 @@ username and password in the app.
 For live video, turn on JPEG streaming in the camera's web settings (Video over IP). The app reads
 `/cgi-bin/mjpeg?stream=1`, and falls back to fetching snapshots from `/cgi-bin/camera` if the stream isn't available.
 
+## Using it
+
+- **Grid** (toolbar) shows every camera's live feed. Click a feed to control that camera in the panel on the right,
+  double-click to open it on its own, or press **1** to **9** to pick a camera by its number.
+- **Single** shows one camera large, with its controls.
+- Movement buttons work while held and stop when you let go.
+
 No camera handy? Add a camera and turn on **Simulated camera** to try the controls.
 
 ## Requirements
