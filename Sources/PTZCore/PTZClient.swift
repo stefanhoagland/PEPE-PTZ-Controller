@@ -38,14 +38,62 @@ public final class PanasonicHTTPClient: PTZClient, @unchecked Sendable {
             delegate: CameraLoginDelegate(username: username, password: password),
             delegateQueue: nil
         )
-        defer { session.finishTasksAndInvalidate() }
+        // Cancelling also closes the connection if the camera never finishes its reply.
+        defer { session.invalidateAndCancel() }
 
         var request = URLRequest(url: url)
         request.setValue("close", forHTTPHeaderField: "Connection")
 
-        let (data, response) = try await session.data(for: request)
+        // Wait for the camera to accept the command (its HTTP headers), then read the
+        // short reply for a moment. Some Panasonic firmware keeps the reply open
+        // without ending it, so waiting for the end would delay the next command,
+        // such as the stop when you let go of a button.
+        let (bytes, response) = try await session.bytes(for: request)
         try PTZError.check(httpResponse: response)
-        return try PTZError.check(response: String(decoding: data, as: UTF8.self))
+        let reply = await Self.readReply(bytes, window: replyWindow)
+        return try PTZError.check(response: reply)
+    }
+
+    /// How long to keep reading a reply after the camera starts answering.
+    private let replyWindow: TimeInterval = 0.3
+
+    private static func readReply(_ bytes: URLSession.AsyncBytes, window: TimeInterval, limit: Int = 256) async -> String {
+        let box = ReplyBuffer()
+        let reader = Task {
+            do {
+                for try await byte in bytes {
+                    box.append(byte)
+                    if box.count >= limit { break }
+                }
+            } catch {
+                // Cancelled after the window, or the connection closed. Use what arrived.
+            }
+        }
+        let timer = Task {
+            try? await Task.sleep(nanoseconds: UInt64(window * 1_000_000_000))
+            reader.cancel()
+        }
+        await reader.value
+        timer.cancel()
+        return String(decoding: box.bytes, as: UTF8.self)
+    }
+}
+
+/// Collects reply bytes from one task while another may read them.
+private final class ReplyBuffer: @unchecked Sendable {
+    private let lock = NSLock()
+    private var storage: [UInt8] = []
+
+    func append(_ byte: UInt8) {
+        lock.lock(); storage.append(byte); lock.unlock()
+    }
+
+    var count: Int {
+        lock.lock(); defer { lock.unlock() }; return storage.count
+    }
+
+    var bytes: [UInt8] {
+        lock.lock(); defer { lock.unlock() }; return storage
     }
 }
 
