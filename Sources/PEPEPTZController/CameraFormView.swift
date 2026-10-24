@@ -31,12 +31,17 @@ struct CameraFormView: View {
             Form {
                 Section(title) {
                     TextField("Name", text: $camera.name, prompt: Text("Stage Left"))
-                    TextField("IP address", text: $camera.host, prompt: Text("192.168.0.10"))
-                    TextField("Port", value: $camera.port, format: .number.grouping(.never))
+                    Toggle("Simulated camera (no hardware)", isOn: $camera.isSimulated)
+                    if !camera.isSimulated {
+                        TextField("IP address", text: $camera.host, prompt: Text("192.168.0.10"))
+                        TextField("Port", value: $camera.port, format: .number.grouping(.never))
+                    }
                 }
-                Section("Login") {
-                    TextField("Username", text: $camera.username, prompt: Text("admin"))
-                    SecureField("Password", text: $password)
+                if !camera.isSimulated {
+                    Section("Login") {
+                        TextField("Username", text: $camera.username, prompt: Text("admin"))
+                        SecureField("Password", text: $password)
+                    }
                 }
                 if showErrors {
                     let errors = trimmed.validate()

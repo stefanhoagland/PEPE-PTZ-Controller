@@ -25,6 +25,8 @@ struct ContentView: View {
         } detail: {
             if let id = selection, let camera = model.library.camera(id: id) {
                 CameraDetailView(camera: camera) { editor = .edit(camera) }
+                    // Start a fresh connection whenever the camera or its settings change.
+                    .id(camera)
             } else {
                 Text(model.library.cameras.isEmpty ? "Add a camera to get started" : "Select a camera")
                     .foregroundStyle(.secondary)
@@ -105,8 +107,8 @@ struct CameraRow: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
-            Label(camera.name, systemImage: "video")
-            Text(camera.host)
+            Label(camera.name, systemImage: camera.isSimulated ? "video.badge.ellipsis" : "video")
+            Text(camera.isSimulated ? "Simulated" : camera.host)
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .padding(.leading, 24)

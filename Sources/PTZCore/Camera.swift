@@ -10,19 +10,38 @@ public struct Camera: Identifiable, Codable, Hashable, Sendable {
     public var host: String
     public var port: Int
     public var username: String
+    /// A built-in fake camera for trying the app without hardware.
+    public var isSimulated: Bool
 
     public init(
         id: UUID = UUID(),
         name: String,
         host: String,
         port: Int = 80,
-        username: String = "admin"
+        username: String = "admin",
+        isSimulated: Bool = false
     ) {
         self.id = id
         self.name = name
         self.host = host
         self.port = port
         self.username = username
+        self.isSimulated = isSimulated
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id, name, host, port, username, isSimulated
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        name = try container.decode(String.self, forKey: .name)
+        host = try container.decode(String.self, forKey: .host)
+        port = try container.decode(Int.self, forKey: .port)
+        username = try container.decode(String.self, forKey: .username)
+        // Older saved lists don't have this field.
+        isSimulated = try container.decodeIfPresent(Bool.self, forKey: .isSimulated) ?? false
     }
 
     /// The camera's HTTP address, for example `http://192.168.0.10`.
@@ -55,7 +74,9 @@ public struct Camera: Identifiable, Codable, Hashable, Sendable {
         var errors: [ValidationError] = []
         if name.trimmingCharacters(in: .whitespaces).isEmpty { errors.append(.missingName) }
         let trimmedHost = host.trimmingCharacters(in: .whitespaces)
-        if trimmedHost.isEmpty {
+        if isSimulated {
+            // A simulated camera doesn't need an address.
+        } else if trimmedHost.isEmpty {
             errors.append(.missingHost)
         } else if trimmedHost.contains(where: { $0 == " " || $0 == "/" }) {
             errors.append(.invalidHost)
